@@ -9,15 +9,26 @@ log() {
 
 log "Starting time zone and NTP configuration..."
 
-# Check for internet connectivity using reliable IP ping
-if ! ping -c 3 -q 8.8.8.8 >/dev/null 2>&1; then
-    log "No internet connection detected (ping failed)."
-    exit 1
-fi
+# Function to check if internet is accessible
+check_internet() {
+    # Try reaching Apple's captive portal test page
+    if curl -s --max-time 5 "http://captive.apple.com" | grep -q "Success"; then
+        log "Internet connection confirmed via HTTP test."
+        return 0
+    fi
 
-# Check if DNS resolution works
-if ! nslookup time.apple.com >/dev/null 2>&1; then
-    log "Internet connection detected, but DNS resolution failed."
+    # Try connecting to NTP port (123) on Apple's time server
+    if nc -zw1 time.apple.com 123; then
+        log "Internet connection confirmed via NTP port test."
+        return 0
+    fi
+
+    log "No internet connection detected (both HTTP and NTP checks failed)."
+    return 1
+}
+
+# Run the internet check before continuing
+if ! check_internet; then
     exit 1
 fi
 
@@ -41,8 +52,12 @@ fi
 if systemsetup -setnetworktimeserver "time.apple.com"; then
     log "Network time server set to time.apple.com."
 else
-    log "Failed to set network time server!"
+    log "Failed to set network time server! Verifying current setting..."
 fi
+
+# Verify that the network time server was set correctly
+current_ntp_server=$(systemsetup -getnetworktimeserver | awk '{print $3}')
+log "Current network time server: $current_ntp_server"
 
 # Force an immediate time sync
 if sntp -sS time.apple.com; then
@@ -51,11 +66,12 @@ else
     log "Time synchronization failed!"
 fi
 
-# Restart the time synchronization service
-if launchctl stop com.apple.timed && launchctl start com.apple.timed; then
-    log "Restarted the time synchronization service."
+# Force an update using ntpdate instead of restarting the service (to bypass SIP restrictions)
+log "Forcing time update with ntpdate..."
+if ntpdate -u time.apple.com; then
+    log "Time successfully updated using ntpdate."
 else
-    log "Failed to restart the time synchronization service!"
+    log "Failed to update time with ntpdate!"
 fi
 
 log "Time zone and NTP configuration completed successfully."
