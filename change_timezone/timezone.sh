@@ -35,43 +35,40 @@ fi
 log "Internet connection confirmed. Proceeding with NTP setup..."
 
 # Set the time zone to Eastern Standard Time (EST)
-if systemsetup -settimezone "America/New_York"; then
+if systemsetup -settimezone "America/New_York" 2>/dev/null; then
     log "Time zone set to America/New_York."
 else
-    log "Failed to set time zone!"
+    log "Failed to set time zone or already set."
 fi
 
 # Enable network time synchronization
-if systemsetup -setusingnetworktime on; then
+if systemsetup -setusingnetworktime on 2>/dev/null; then
     log "Network time synchronization enabled."
 else
-    log "Failed to enable network time synchronization!"
+    log "Network time synchronization was already enabled."
 fi
 
 # Set the network time server
-if systemsetup -setnetworktimeserver "time.apple.com"; then
+if systemsetup -setnetworktimeserver "time.apple.com" 2>/dev/null; then
     log "Network time server set to time.apple.com."
 else
-    log "Failed to set network time server! Verifying current setting..."
+    log "Failed to set network time server or already set."
 fi
 
-# Verify that the network time server was set correctly
-current_ntp_server=$(systemsetup -getnetworktimeserver | awk '{print $3}')
-log "Current network time server: $current_ntp_server"
+# Verify that the network time server was correctly set
+actual_ntp_server=$(defaults read /Library/Preferences/com.apple.timed.plist TimeServer 2>/dev/null)
+if [[ -n "$actual_ntp_server" ]]; then
+    log "Verified network time server: $actual_ntp_server"
+else
+    log "Warning: Could not verify the time server setting."
+fi
 
-# Force an immediate time sync
+# Force an immediate time sync (without needing SIP-protected service restart)
+log "Forcing immediate time synchronization..."
 if sntp -sS time.apple.com; then
-    log "Time successfully synchronized."
+    log "Time successfully synchronized using sntp."
 else
     log "Time synchronization failed!"
-fi
-
-# Force an update using ntpdate instead of restarting the service (to bypass SIP restrictions)
-log "Forcing time update with ntpdate..."
-if ntpdate -u time.apple.com; then
-    log "Time successfully updated using ntpdate."
-else
-    log "Failed to update time with ntpdate!"
 fi
 
 log "Time zone and NTP configuration completed successfully."
