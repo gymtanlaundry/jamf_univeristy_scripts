@@ -9,11 +9,19 @@ log() {
 
 log "Starting time zone and NTP configuration..."
 
-# Check if internet is available before attempting time sync
-if ! nc -zw1 time.apple.com 123; then
-    log "No internet connection or NTP server unreachable. Skipping time sync."
+# Check for internet connectivity using reliable IP ping
+if ! ping -c 3 -q 8.8.8.8 >/dev/null 2>&1; then
+    log "No internet connection detected (ping failed)."
     exit 1
 fi
+
+# Check if DNS resolution works
+if ! nslookup time.apple.com >/dev/null 2>&1; then
+    log "Internet connection detected, but DNS resolution failed."
+    exit 1
+fi
+
+log "Internet connection confirmed. Proceeding with NTP setup..."
 
 # Set the time zone to Eastern Standard Time (EST)
 if systemsetup -settimezone "America/New_York"; then
@@ -43,7 +51,7 @@ else
     log "Time synchronization failed!"
 fi
 
-# Restart the time synchronization service to ensure changes take effect
+# Restart the time synchronization service
 if launchctl stop com.apple.timed && launchctl start com.apple.timed; then
     log "Restarted the time synchronization service."
 else
