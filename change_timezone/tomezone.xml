@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadType</key>
+            <string>com.apple.time</string>
+            <key>PayloadIdentifier</key>
+            <string>com.company.ntpsettings</string>
+            <key>PayloadUUID</key>
+            <string>12345678-ABCD-1234-ABCD-1234567890AB</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+            <key>TimeServer</key>
+            <string>time.apple.com</string>
+            <key>TimeZone</key>
+            <string>America/New_York</string>
+        </dict>
+    </array>
+    <key>PayloadDisplayName</key>
+    <string>Time Settings</string>
+    <key>PayloadIdentifier</key>
+    <string>com.company.timesettings</string>
+    <key>PayloadOrganization</key>
+    <string>YourCompany</string>
+    <key>PayloadUUID</key>
+    <string>09876543-DCBA-4321-DCBA-0987654321AB</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+</dict>
+</plist>
