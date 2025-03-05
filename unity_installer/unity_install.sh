@@ -9,11 +9,11 @@ UNITY_HUB_URL="https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup.dmg"
 UNITY_HUB_DMG="/Users/Macadmin/Downloads/UnityHubSetup.dmg"
 
 # Unity Credentials
-UNITY_EMAIL=""
-UNITY_PASSWORD=""
-SERIAL=""
-MACADMIN_USER=""
-MACADMIN_PASS=""
+UNITY_EMAIL="software@quinnipiac.edu"
+UNITY_PASSWORD="Un1ty3D!"
+SERIAL="E4-DBWE-2CB8-2N8S-ENAB-7XM4"
+MACADMIN_USER="Macadmin"
+MACADMIN_PASS="lab-d@1qu1r1"
 
 # Ensure logging directory exists
 mkdir -p "$(dirname "$LOGFILE")"
@@ -23,26 +23,32 @@ chmod 666 "$LOGFILE"
 # Get Unity Hub Team ID dynamically
 UNITY_TEAM_ID=$(codesign -dv --verbose=4 /Applications/Unity\ Hub.app 2>&1 | awk '/TeamIdentifier/ {print $NF}')
 
-# Function to reset and re-add Keychain entry silently
+# Function to set up Keychain entries for a user (even if never logged in)
 setup_keychain_entry() {
     local USERNAME=$1
-    local USER_HOME=$(eval echo ~$USERNAME)
+    local USER_HOME="/Users/$USERNAME"
     local LOGIN_KEYCHAIN="$USER_HOME/Library/Keychains/login.keychain-db"
 
     echo "$(date) - Setting up Keychain entry for user: $USERNAME" | tee -a "$LOGFILE"
 
-    if [[ ! -f "$LOGIN_KEYCHAIN" ]]; then
-        echo "$(date) - ERROR: Keychain does not exist for $USERNAME! Skipping..." | tee -a "$LOGFILE"
-        return 1
+    # Ensure user's Keychain directory exists
+    if [[ ! -d "$USER_HOME/Library/Keychains" ]]; then
+        echo "$(date) - Creating Keychain directory for $USERNAME..." | tee -a "$LOGFILE"
+        mkdir -p "$USER_HOME/Library/Keychains"
+        chown -R "$USERNAME":staff "$USER_HOME/Library/Keychains"
     fi
 
-    # Delete old Unity Hub Keychain entry
-    sudo -u "$USERNAME" security delete-generic-password -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" "$LOGIN_KEYCHAIN" 2>/dev/null
+    # If Keychain doesn't exist, create it (even for non-logged-in users)
+    if [[ ! -f "$LOGIN_KEYCHAIN" ]]; then
+        echo "$(date) - Keychain not found for $USERNAME. Creating one..." | tee -a "$LOGFILE"
+        sudo -u "$USERNAME" security create-keychain -p "" "$LOGIN_KEYCHAIN"
+        sudo -u "$USERNAME" security list-keychains -s "$LOGIN_KEYCHAIN"
+    fi
 
-    # Add new Keychain entry silently
+    # Add Unity Hub credentials to the Keychain
     echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security add-generic-password -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" -w "$UNITY_PASSWORD" -U "$LOGIN_KEYCHAIN"
 
-    # Grant Unity Hub access without prompting
+    # Grant Unity Hub access to the Keychain entry
     echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security set-generic-password-partition-list -S "apple-tool:,apple:,teamid:$UNITY_TEAM_ID" -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" -U "$LOGIN_KEYCHAIN"
 
     # Verify Keychain entry
@@ -55,10 +61,10 @@ setup_keychain_entry() {
     fi
 }
 
-# Set up Keychain for Macadmin first (before Unity Hub opens)
+# Set up Keychain for Macadmin first (even if not logged in)
 setup_keychain_entry "$MACADMIN_USER"
 
-# Loop through all users and set up their Keychain entries
+# Loop through all real users (skip system accounts)
 for USER in $(ls /Users); do
     if [[ "$USER" != "Shared" && "$USER" != ".localized" && "$USER" != "Guest" ]]; then
         setup_keychain_entry "$USER"
