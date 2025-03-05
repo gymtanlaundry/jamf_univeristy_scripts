@@ -1,63 +1,40 @@
-#!/bin/bash
+# Function to completely reset and re-add Keychain entry silently using Macadmin's login Keychain
+setup_keychain_entry() {
+    local USERNAME=$1
+    local USER_HOME=$(eval echo ~$USERNAME)
 
-LOGFILE="/var/log/unity_setup.log"
+    echo "$(date) - Setting up Keychain entry for user: $USERNAME" | tee -a "$LOGFILE"
 
-echo "$(date) - Starting Unity Hub, Editor installation, and serialization..." | tee -a "$LOGFILE"
+    # Ensure Keychain exists for user
+    if [[ ! -f "$USER_HOME/Library/Keychains/login.keychain-db" ]]; then
+        echo "$(date) - Creating login Keychain for $USERNAME" | tee -a "$LOGFILE"
+        sudo -u "$USERNAME" security create-keychain -p "" "$USER_HOME/Library/Keychains/login.keychain-db"
+    fi
 
-# Define Unity Hub download URL
-UNITY_HUB_URL="https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup.dmg"
+    # Delete any old Unity Hub Keychain entry if it exists
+    sudo -u "$USERNAME" security delete-generic-password -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" 2>/dev/null
 
-# Check if Unity Hub is installed
-if [[ ! -d "/Applications/Unity Hub.app" ]]; then
-    echo "$(date) - Unity Hub not found. Downloading..." | tee -a "$LOGFILE"
+    # Add new Unity Hub Keychain entry silently using the login Keychain
+    echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security add-generic-password -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" -w "$UNITY_PASSWORD" -U "$USER_HOME/Library/Keychains/login.keychain-db"
 
-    # Download Unity Hub DMG
-    curl -L "$UNITY_HUB_URL" -o /tmp/UnityHubSetup.dmg
+    # Grant Unity Hub access without prompting
+    echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security set-key-partition-list -S "apple-tool:,apple:,teamid:6D757G3MZV" -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" -U "$USER_HOME/Library/Keychains/login.keychain-db"
 
-    # Mount and install Unity Hub
-    hdiutil attach /tmp/UnityHubSetup.dmg
-    sudo cp -R "/Volumes/Unity Hub/Unity Hub.app" /Applications/
-    hdiutil detach "/Volumes/Unity Hub"
+    # Verify entry exists before continuing
+    if ! sudo -u "$USERNAME" security find-generic-password -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" "$USER_HOME/Library/Keychains/login.keychain-db" >/dev/null 2>&1; then
+        echo "$(date) - ERROR: Keychain entry creation failed for $USERNAME!" | tee -a "$LOGFILE"
+        exit 1
+    else
+        echo "$(date) - Keychain entry successfully created for $USERNAME." | tee -a "$LOGFILE"
+    fi
+}
 
-    echo "$(date) - Unity Hub installed successfully." | tee -a "$LOGFILE"
-else
-    echo "$(date) - Unity Hub is already installed." | tee -a "$LOGFILE"
-fi
+# Set up Keychain for Macadmin first (before Unity Hub opens)
+setup_keychain_entry "$MACADMIN_USER"
 
-# Get the latest Unity version available
-LATEST_VERSION=$(/Applications/Unity\ Hub.app/Contents/MacOS/Unity\ Hub --headless editors --latest-installed | tail -n 1)
-echo "$(date) - Latest Unity version detected: $LATEST_VERSION" | tee -a "$LOGFILE"
-
-# Install the latest Unity Editor
-echo "$(date) - Installing Unity Editor version $LATEST_VERSION..." | tee -a "$LOGFILE"
-/Applications/Unity\ Hub.app/Contents/MacOS/Unity\ Hub --headless install --version $LATEST_VERSION
-
-# Wait for installation to complete
-sleep 300  
-
-# Define Unity path after installation
-UNITY_PATH="/Applications/Unity/Hub/Editor/$LATEST_VERSION/Unity.app/Contents/MacOS/Unity"
-
-# Ensure Unity exists before serializing
-if [[ ! -f "$UNITY_PATH" ]]; then
-    echo "$(date) - Error: Unity executable not found at $UNITY_PATH" | tee -a "$LOGFILE"
-    exit 1
-fi
-
-# Assign license
-SERIAL="E4-"
-USERNAME="Owner username"
-PASSWORD="Owner password"
-
-echo "$(date) - Serializing Unity..." | tee -a "$LOGFILE"
-"$UNITY_PATH" -quit -batchmode -serial "$SERIAL" -username "$USERNAME" -password "$PASSWORD" 2>&1 | tee -a "$LOGFILE"
-
-EXIT_CODE=${PIPESTATUS[0]}
-
-if [[ $EXIT_CODE -ne 0 ]]; then
-    echo "$(date) - Error: Unity serialization failed with exit code $EXIT_CODE" | tee -a "$LOGFILE"
-    exit $EXIT_CODE
-fi
-
-echo "$(date) - Unity Hub, latest Editor installed, and serialized successfully!" | tee -a "$LOGFILE"
-exit 0
+# Loop through all users and set up their Keychain entries (excluding system users)
+for USER in $(ls /Users); do
+    if [[ "$USER" != "Shared" && "$USER" != ".localized" && "$USER" != "Guest" ]]; then
+        setup_keychain_entry "$USER"
+    fi
+done
