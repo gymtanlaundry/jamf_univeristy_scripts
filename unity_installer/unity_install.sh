@@ -9,11 +9,11 @@ UNITY_HUB_URL="https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup.dmg"
 UNITY_HUB_DMG="/Users/Macadmin/Downloads/UnityHubSetup.dmg"
 
 # Unity Credentials
-UNITY_EMAIL="software@quinnipiac.edu"
-UNITY_PASSWORD="Un1ty3D!"
-SERIAL="E4-DBWE-2CB8-2N8S-ENAB-7XM4"
-MACADMIN_USER="Macadmin"
-MACADMIN_PASS="lab-d@1qu1r1"
+UNITY_EMAIL=""
+UNITY_PASSWORD=""
+SERIAL=""
+MACADMIN_USER=""
+MACADMIN_PASS=""
 
 # Ensure logging directory exists
 mkdir -p "$(dirname "$LOGFILE")"
