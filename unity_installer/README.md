@@ -47,7 +47,7 @@ This repository provides an automated solution for deploying **Unity Hub** and t
   ```
 - Validate Keychain entry:  
   ```bash
-  security find-generic-password -s "com.unity3d.unityhub" -a "software@quinnipiac.edu"
+  security find-generic-password -s "com.unity3d.unityhub" -a "whatever email you used in Unity"
   ```
 
 ## 🛠️ Troubleshooting
@@ -61,9 +61,12 @@ This repository provides an automated solution for deploying **Unity Hub** and t
 - Implement **offline package caching** to reduce network dependency.
 - Add **multi-user support** for seamless installations on shared devices.
 - Enhance **error handling & recovery mechanisms** for failed deployments.
+- Fix Config profile to handle passing the credentials to everyones keychain. Needs work in the script to dynamically do that. 
 
 ## 📢 Contributing
 If you have improvements, submit a PR or open an issue!
+
+
 
 ---
 ⚡ **Author:** Joe (Hawk) Mancuso   
