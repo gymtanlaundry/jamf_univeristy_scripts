@@ -21,8 +21,8 @@ This repository provides an automated solution for deploying **Unity Hub** and t
 
 ### **2️⃣ Mac Admin Setup**
 - Ensure a **local admin account** (`name is whatever`) exists on target machines.
-- For companies that are more durable and do not have an admin account or roate that password, thi may not work. But, create a fork.
-- The script assumes Unity credentials belong to `what ever email you used to sugn up with`.
+- For companies that are more durable and do not have an admin account or roate that password, this may not work. But, create a fork.
+- The script assumes Unity credentials belong to `what ever email you used to sign up with`.
 
 ## 🛠️ Installation Steps
 ### **Step 1: Upload the Configuration Profile**
