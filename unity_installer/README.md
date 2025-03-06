@@ -65,7 +65,7 @@ This repository provides an automated solution for deploying **Unity Hub** and t
 If you have improvements, submit a PR or open an issue!
 
 ---
-⚡ **Author:** Your Name  
+⚡ **Author:** Joe (Hawk) Mancuso   
 📅 **Last Updated:** March 6, 2025  
-🐧 **Tested On:** macOS Ventura 13.x & Jamf Pro
+🐧 **Tested On:** macOS Ventura 13.x & Jamf Pro 11.x
 
