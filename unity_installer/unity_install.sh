@@ -4,29 +4,31 @@ LOGFILE="/var/log/unity_setup.log"
 
 echo "$(date) - Starting Unity Editor and Hub installation, followed by login..." | tee -a "$LOGFILE"
 
-# Unity Editor & Hub URLs (Fixed: Removed jq, Hardcoded Latest Editor URL)
-UNITY_EDITOR_URL="https://download.unity3d.com/download_unity/$(curl -s https://public-cdn.cloud.unity3d.com/hub/prod/releases-darwin.json | grep -o 'https[^"]*MacEditorInstaller.dmg' | head -n 1)"
+# Unity Editor & Hub URLs (Fixed: Corrected Unity Editor URL Retrieval)
+UNITY_EDITOR_URL=$(curl -s https://public-cdn.cloud.unity3d.com/hub/prod/releases-darwin.json | grep -o 'https[^"]*Unity-[^"]*.pkg' | head -n 1)
 UNITY_EDITOR_PKG="/tmp/UnityEditor.pkg"
 UNITY_HUB_URL="https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup.dmg"
 UNITY_HUB_DMG="/tmp/UnityHubSetup.dmg"
 
-# Unity Credentials
+### the admin password is your jamf admin account. This only works if your org uses an admin account that doesnt rortate the password.
+### The email and password for unity is what you signed up for with untiy and that is how you can get your perpetual license key
+# Unity Credentials 
 UNITY_EMAIL=""
 UNITY_PASSWORD=""
 SERIAL=""
-MACADMIN_USER=""
-MACADMIN_PASS=""
+ADMIN_USER=""
+ADMIN_PASS=""
 
 # Ensure logging directory exists
 mkdir -p "$(dirname "$LOGFILE")"
 touch "$LOGFILE"
 chmod 666 "$LOGFILE"
 
-### **STEP 1: Download & Install Unity Editor (Latest)**
-echo "$(date) - Downloading Unity Editor package..." | tee -a "$LOGFILE"
+### **STEP 1: Download & Install Unity Editor (Fixed)**
+echo "$(date) - Downloading Unity Editor package from $UNITY_EDITOR_URL..." | tee -a "$LOGFILE"
 curl -L "$UNITY_EDITOR_URL" -o "$UNITY_EDITOR_PKG"
 
-if [[ ! -f "$UNITY_EDITOR_PKG" ]]; then
+if [[ ! -s "$UNITY_EDITOR_PKG" ]]; then
     echo "$(date) - ERROR: Unity Editor package failed to download!" | tee -a "$LOGFILE"
     exit 1
 fi
@@ -34,14 +36,14 @@ fi
 echo "$(date) - Installing Unity Editor..." | tee -a "$LOGFILE"
 echo "$MACADMIN_PASS" | sudo -S installer -pkg "$UNITY_EDITOR_PKG" -target /
 
-if [[ ! -d "/Applications/Unity/Editor" ]]; then
+if [[ ! -d "/Applications/Unity" ]]; then
     echo "$(date) - ERROR: Unity Editor installation failed!" | tee -a "$LOGFILE"
     exit 1
 fi
 
 echo "$(date) - Unity Editor installed successfully." | tee -a "$LOGFILE"
 
-### **STEP 2: Download & Install Unity Hub (No Changes, Works Fine)**
+### **STEP 2: Download & Install Unity Hub**
 if [[ ! -d "/Applications/Unity Hub.app" ]]; then
     echo "$(date) - Unity Hub not found. Downloading..." | tee -a "$LOGFILE"
     curl -L "$UNITY_HUB_URL" -o "$UNITY_HUB_DMG"
