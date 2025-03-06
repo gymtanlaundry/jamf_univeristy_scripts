@@ -23,32 +23,36 @@ chmod 666 "$LOGFILE"
 # Get Unity Hub Team ID dynamically
 UNITY_TEAM_ID=$(codesign -dv --verbose=4 /Applications/Unity\ Hub.app 2>&1 | awk '/TeamIdentifier/ {print $NF}')
 
-# Function to set up Keychain entries for a user (even if never logged in)
+# Function to ensure Keychain exists before adding credentials
+ensure_keychain_exists() {
+    local USERNAME=$1
+    local USER_HOME=$(eval echo ~$USERNAME)
+    local LOGIN_KEYCHAIN="$USER_HOME/Library/Keychains/login.keychain-db"
+
+    if [[ ! -f "$LOGIN_KEYCHAIN" ]]; then
+        echo "$(date) - Keychain does not exist for $USERNAME. Creating..." | tee -a "$LOGFILE"
+        echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security create-keychain -p "" "$LOGIN_KEYCHAIN"
+        sudo -u "$USERNAME" security list-keychains -s "$LOGIN_KEYCHAIN"
+    fi
+}
+
+# Function to add Unity credentials to the Keychain silently using Macadmin password
 setup_keychain_entry() {
     local USERNAME=$1
-    local USER_HOME="/Users/$USERNAME"
+    local USER_HOME=$(eval echo ~$USERNAME)
     local LOGIN_KEYCHAIN="$USER_HOME/Library/Keychains/login.keychain-db"
 
     echo "$(date) - Setting up Keychain entry for user: $USERNAME" | tee -a "$LOGFILE"
 
-    # Ensure user's Keychain directory exists
-    if [[ ! -d "$USER_HOME/Library/Keychains" ]]; then
-        echo "$(date) - Creating Keychain directory for $USERNAME..." | tee -a "$LOGFILE"
-        mkdir -p "$USER_HOME/Library/Keychains"
-        chown -R "$USERNAME":staff "$USER_HOME/Library/Keychains"
-    fi
+    ensure_keychain_exists "$USERNAME"
 
-    # If Keychain doesn't exist, create it (even for non-logged-in users)
-    if [[ ! -f "$LOGIN_KEYCHAIN" ]]; then
-        echo "$(date) - Keychain not found for $USERNAME. Creating one..." | tee -a "$LOGFILE"
-        sudo -u "$USERNAME" security create-keychain -p "" "$LOGIN_KEYCHAIN"
-        sudo -u "$USERNAME" security list-keychains -s "$LOGIN_KEYCHAIN"
-    fi
+    # Delete old Unity Hub Keychain entry
+    echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security delete-generic-password -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" "$LOGIN_KEYCHAIN" 2>/dev/null
 
-    # Add Unity Hub credentials to the Keychain
+    # Add new Keychain entry silently
     echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security add-generic-password -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" -w "$UNITY_PASSWORD" -U "$LOGIN_KEYCHAIN"
 
-    # Grant Unity Hub access to the Keychain entry
+    # Grant Unity Hub access without prompting
     echo "$MACADMIN_PASS" | sudo -S -u "$USERNAME" security set-generic-password-partition-list -S "apple-tool:,apple:,teamid:$UNITY_TEAM_ID" -s "com.unity3d.unityhub" -a "$UNITY_EMAIL" -U "$LOGIN_KEYCHAIN"
 
     # Verify Keychain entry
@@ -61,24 +65,17 @@ setup_keychain_entry() {
     fi
 }
 
-# Set up Keychain for Macadmin first (even if not logged in)
+# Set up Keychain for Macadmin first (before Unity Hub opens)
 setup_keychain_entry "$MACADMIN_USER"
 
-# Loop through all real users (skip system accounts)
+# Loop through all users and set up their Keychain entries
 for USER in $(ls /Users); do
     if [[ "$USER" != "Shared" && "$USER" != ".localized" && "$USER" != "Guest" ]]; then
         setup_keychain_entry "$USER"
     fi
 done
 
-# Ensure previous Unity Hub DMG is not mounted
-MOUNTED_DMG=$(hdiutil info | awk '/Unity Hub/ {print $3}')
-if [[ -n "$MOUNTED_DMG" ]]; then
-    hdiutil detach "$MOUNTED_DMG" -force
-    sleep 2
-fi
-
-# Install Unity Hub as Macadmin
+# Ensure Unity Hub is installed as Macadmin
 if [[ ! -d "/Applications/Unity Hub.app" ]]; then
     echo "$(date) - Unity Hub not found. Downloading..." | tee -a "$LOGFILE"
     sudo -u "$MACADMIN_USER" curl -L "$UNITY_HUB_URL" -o "$UNITY_HUB_DMG"
@@ -103,18 +100,30 @@ if [[ ! -d "/Applications/Unity Hub.app" ]]; then
     hdiutil detach "/Volumes/$HUB_VOLUME"
     sudo xattr -dr com.apple.quarantine "/Applications/Unity Hub.app"
     open -a "Unity Hub"
-    sleep 10
+    echo "$(date) - Waiting for Unity Hub to initialize..." | tee -a "$LOGFILE"
+    sleep 20
     echo "$(date) - Unity Hub installed successfully." | tee -a "$LOGFILE"
 else
     echo "$(date) - Unity Hub is already installed." | tee -a "$LOGFILE"
 fi
 
-# Install Unity Editor
+# Log into Unity Hub (Silent login)
+echo "$(date) - Forcing Unity Hub login as Macadmin..." | tee -a "$LOGFILE"
+echo "$MACADMIN_PASS" | sudo -S -u "$MACADMIN_USER" /Applications/Unity\ Hub.app/Contents/MacOS/Unity\ Hub --headless login -u "$UNITY_EMAIL" -p "$UNITY_PASSWORD" --remember-me
+sleep 10  # Ensure login is processed
+
+# Install Unity Editor with proper logging
 LATEST_VERSION=$(ls /Applications/Unity/Hub/Editor/ | sort -V | tail -n 1)
 if [[ -z "$LATEST_VERSION" ]]; then
     echo "$(date) - No Unity Editor installed. Installing latest version..." | tee -a "$LOGFILE"
-    sudo -u "$MACADMIN_USER" /Applications/Unity\ Hub.app/Contents/MacOS/Unity\ Hub --headless install --version latest
-    sleep 600
+    echo "$MACADMIN_PASS" | sudo -S -u "$MACADMIN_USER" /Applications/Unity\ Hub.app/Contents/MacOS/Unity\ Hub --headless install --version latest &
+    
+    INSTALL_PID=$!
+    while kill -0 $INSTALL_PID 2>/dev/null; do
+        echo "$(date) - Unity Editor installation in progress..." | tee -a "$LOGFILE"
+        sleep 30
+    done
+
     LATEST_VERSION=$(ls /Applications/Unity/Hub/Editor/ | sort -V | tail -n 1)
 fi
 
@@ -126,7 +135,7 @@ fi
 
 # Serialize Unity as Macadmin
 echo "$(date) - Serializing Unity..." | tee -a "$LOGFILE"
-echo "$UNITY_PASSWORD" | sudo -u "$MACADMIN_USER" "$UNITY_PATH" -quit -batchmode -serial "$SERIAL" -username "$UNITY_EMAIL" -password "$(cat)" 2>&1 | tee -a "$LOGFILE"
+echo "$MACADMIN_PASS" | sudo -S -u "$MACADMIN_USER" "$UNITY_PATH" -quit -batchmode -serial "$SERIAL" -username "$UNITY_EMAIL" -password "$UNITY_PASSWORD" 2>&1 | tee -a "$LOGFILE"
 
 EXIT_CODE=${PIPESTATUS[0]}
 if [[ $EXIT_CODE -ne 0 ]]; then
