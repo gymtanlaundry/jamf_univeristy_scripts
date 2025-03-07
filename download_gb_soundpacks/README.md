@@ -140,11 +140,4 @@ Contributions are welcome! If you have suggestions for improving the script or e
 **Enjoy your automated GarageBand setup! 🎶**
 ```
 
-### Key Elements in the README:
-- **Clear explanation** of the use case for Jamf and VPP.
-- **How the script works** with emphasis on the automated installation of sound packs.
-- **Step-by-step instructions** for setup and usage.
-- **Example output** to show what the log file will look like.
-- **License** section for clarity, and contribution guidelines.
 
-This structure will make it easy for others to understand the purpose of the script, how to set it up, and how to troubleshoot any issues that may arise.
