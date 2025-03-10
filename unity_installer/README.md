@@ -66,8 +66,19 @@ This repository provides an automated solution for deploying **Unity Hub** and t
 ## 📢 Contributing
 If you have improvements, submit a PR or open an issue!
 
+## 📢 NEW FIXES 
+3/10/2025 Due to time and testing, I cannot get the serializing to happen w/o user. I updated the script to:
+✅ Downloads and installs the latest Unity Hub
+✅ Uses Unity Hub to install Unity Editor 6+ (latest)
+✅ Ensures robust logging at every step
+✅ No login required—just downloads and installs Unity
+✅ Fails safely, retries downloads if needed, and ensures everything is installed correctly
+Download & Install the Latest Unity Hub 
+✅ (Already working in the script)
+Use Unity Hub CLI to Download Unity 6+ Automatically
 
-
+# 🛠️ Command:
+/Applications/Unity\ Hub.app/Contents/MacOS/Unity\ Hub --headless install --version latest
 ---
 ⚡ **Author:** Joe (Hawk) Mancuso   
 📅 **Last Updated:** March 6, 2025  
